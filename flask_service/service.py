@@ -1,5 +1,6 @@
 from flask import Flask
 from threading import Thread
+
 app = Flask(__name__)
 
 
@@ -8,6 +9,11 @@ def index():
     return 'Ok'
 
 
-def run_flask_in_thread():
-    flask_thread = Thread(target=app.run)
+def thread_flask():
+    flask_thread = Thread(target=run_flask)
     flask_thread.start()
+
+
+def run_flask():
+    app.run(host='localhost', port=80)
+
