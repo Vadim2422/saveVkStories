@@ -4,8 +4,8 @@ import time
 import requests
 from vk_api import VkApi
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType, VkBotMessageEvent
+from flask_service.service import start_thread_flask
 
-from flask_service.service import run_flask_in_thread
 from logs.logger import logger
 from src.config import vk_group_token, vk_user_token
 from src.data import headers
@@ -129,5 +129,5 @@ def main():
 
 
 if __name__ == '__main__':
-    run_flask_in_thread()
+    start_thread_flask()
     main()

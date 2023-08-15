@@ -9,11 +9,11 @@ def index():
     return 'Ok'
 
 
-def thread_flask():
+def start_thread_flask():
     flask_thread = Thread(target=run_flask)
     flask_thread.start()
 
 
 def run_flask():
-    app.run(host='localhost', port=80)
+    app.run(host='0.0.0.0', port=8080)
 
