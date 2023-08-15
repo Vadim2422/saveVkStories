@@ -1,29 +1,70 @@
+import json
+import time
+
 import requests
 from vk_api import VkApi
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType, VkBotMessageEvent
 
-from config import vk_group_token, my_vk_token
-from data import headers
+from logs.logger import logger
+from src.config import vk_group_token, vk_user_token
+from src.data import headers
 
-vk_session = VkApi(token=vk_group_token)
+path_to_video = "src/video/video.mp4"
+
+vk_group_session = VkApi(token=vk_group_token)
+vk_user_session = VkApi(token=vk_user_token)
 
 
 def download_video(link):
     response_video = requests.get(link, headers=headers)
-    with open("video.mp4", "wb") as file:
-        file.write(response_video.content)
+    if not response_video.ok or not (content := response_video.content):
+        logger.error("Video not download")
+        raise Exception()
+    with open(path_to_video, "wb") as file:
+        file.write(content)
+
+
+def add_video_to_album(owner_id, video_id):
+    values = {"album_id": 1,
+              "owner_id": owner_id,
+              "video_id": video_id}
+    if not vk_user_session.method("video.addToAlbum", values=values):
+        logger.error(f'Video with id={video_id} with owner id={owner_id} not add to album with id={values["album_id"]}')
+        raise Exception
 
 
 def get_upload_url():
     values = {"name": "Kappa",
-              "group_id": 222031412}
-    return VkApi(token=my_vk_token).method(method='video.save', values=values)['upload_url']
+              "group_id": 174635541}
+    response = vk_user_session.method(method='video.save', values=values)
+    if 'upload_url' in response:
+        return response['upload_url']
+    else:
+        logger.error("Couldn't get the upload link")
+        raise Exception
 
 
 def video_to_group():
     upload_url = get_upload_url()
-    files = {"video_file": open("video.mp4", "rb")}
-    return requests.post(upload_url, files=files).json()
+    files = {"video_file": open(path_to_video, "rb")}
+    response = requests.post(upload_url, files=files).json()
+    if 'video_id' in response:
+        return response
+    else:
+        logger.error("Video not added to group")
+        raise Exception
+
+
+def send_msg_text(user_id, msg):
+    values = {"user_id": user_id,
+              "random_id": 0,
+              "message": msg,
+              }
+    try:
+        response = vk_group_session.method("messages.send", values=values)
+        return response
+    except Exception:
+        logger.exception("send_msg_text")
 
 
 def send_msg_video(user_id, owner_id, video_id):
@@ -31,7 +72,21 @@ def send_msg_video(user_id, owner_id, video_id):
               "random_id": 0,
               "attachment": f"video{owner_id}_{video_id}",
               }
-    vk_session.method("messages.send/", values=values)
+    try:
+        vk_group_session.method("messages.send", values=values)
+    except Exception:
+        logger.exception("send_msg_video")
+
+
+def delete_msg(msg_id):
+    values = {
+        "message_ids": msg_id,
+        "delete_for_all": 1,
+
+    }
+    time.sleep(5)
+
+    vk_group_session.method("messages.delete", values=values)
 
 
 def save_story(message):
@@ -44,27 +99,29 @@ def save_story(message):
                 max_res = res
 
     if not max_res:
+        logger.error(f"Not found link in files json\nfiles:\n{json.dumps(files, indent=4)}")
         return
     link_video = files[f'mp4_{max_res}']
     download_video(link_video)
     response = video_to_group()
     video_id = response['video_id']
     owner_id = response['owner_id']
-    from_id = message.from_id
-    send_msg_video(from_id, owner_id, video_id)
+    add_video_to_album(owner_id, video_id)
 
 
 def main():
-    longpoll = VkBotLongPoll(vk_session, '222031412')
+    logger.info(f"Bot is up")
+
+    longpoll = VkBotLongPoll(vk_group_session, '174635541')
     for event in longpoll.listen():
 
         if event.type == VkBotEventType.MESSAGE_NEW:
             if event.message.attachments:
                 if event.message.attachments[0]['type'] == 'story':
-                    save_story(event.message)
-                # elif videos := [attachment['video'] for attachment in event.message.attachments if attachment['type'] == 'video']:
-                #     for video in videos:
-                #         print(video)
+                    try:
+                        save_story(event.message)
+                    except Exception:
+                        send_msg_text(event.message.from_id, "Error, check logs")
 
 
 if __name__ == '__main__':
