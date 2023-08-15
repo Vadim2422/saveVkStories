@@ -16,6 +16,7 @@ yarl = "==1.9.2"
 python-dotenv = "*"
 vk-api = "*"
 requests = "*"
+flask = "*"
 
 [dev-packages]
 

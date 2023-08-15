@@ -5,6 +5,7 @@ import requests
 from vk_api import VkApi
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType, VkBotMessageEvent
 
+from flask_service.service import run_flask_in_thread
 from logs.logger import logger
 from src.config import vk_group_token, vk_user_token
 from src.data import headers
@@ -31,6 +32,8 @@ def add_video_to_album(owner_id, video_id):
     if not vk_user_session.method("video.addToAlbum", values=values):
         logger.error(f'Video with id={video_id} with owner id={owner_id} not add to album with id={values["album_id"]}')
         raise Exception
+    else:
+        logger.info(f"Video with id={video_id} add to user")
 
 
 def get_upload_url():
@@ -49,6 +52,7 @@ def video_to_group():
     files = {"video_file": open(path_to_video, "rb")}
     response = requests.post(upload_url, files=files).json()
     if 'video_id' in response:
+        logger.info(f"Video with id={response['video_id']} add to group")
         return response
     else:
         logger.error("Video not added to group")
@@ -125,4 +129,5 @@ def main():
 
 
 if __name__ == '__main__':
+    run_flask_in_thread()
     main()
