@@ -1,4 +1,5 @@
 import json
+import os.path
 import time
 
 import requests
@@ -10,8 +11,8 @@ from logs.logger import logger
 from src.config import vk_group_token, vk_user_token
 from src.data import headers
 
-path_to_video = "src/video/video.mp4"
-
+path_to_dir_video = "src/video"
+path_to_video = os.path.join(path_to_dir_video, 'video.mp4')
 vk_group_session = VkApi(token=vk_group_token)
 vk_user_session = VkApi(token=vk_user_token)
 
@@ -21,7 +22,7 @@ def download_video(link):
     if not response_video.ok or not (content := response_video.content):
         logger.error("Video not download")
         raise Exception()
-    with open(path_to_video, "wb") as file:
+    with open(path_to_video , "wb") as file:
         file.write(content)
 
 
@@ -115,7 +116,8 @@ def save_story(message):
 
 def main():
     logger.info(f"Bot is up")
-
+    if not os.path.isdir(path_to_dir_video):
+        os.mkdir(path_to_dir_video)
     longpoll = VkBotLongPoll(vk_group_session, '174635541')
     for event in longpoll.listen():
 
