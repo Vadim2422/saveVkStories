@@ -104,8 +104,10 @@ def delete_msg(msg_id):
     vk_group_session.method("messages.delete", values=values)
 
 
-def save_story(message):
-    files = message.attachments[0]['story']['video']['files']
+def save_story(story):
+    if not (video := story.get('video')):
+        return
+    files = video['files']
     max_res = 0
     for key, value in files.items():
         if "mp4_" in key:
@@ -123,7 +125,6 @@ def save_story(message):
     owner_id = response['owner_id']
     add_video_to_album(owner_id, video_id)
 
-# def check_story_video(message):
 
 def main():
     logger.info(f"Bot is up")
@@ -133,11 +134,10 @@ def main():
     for event in long_poll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW:
             if att := event.message.attachments:
-                if (story := att[0].get('story')) and (video := story.get('video')):
+                if story := att[0].get('story'):
                     try:
-                        print(video)
                         mark_as_read(event.message.peer_id, event.message.id)
-                        save_story(event.message)
+                        save_story(story)
                     except VkApiError:
                         send_msg_text(event.message.from_id, "Error, check logs")
 
