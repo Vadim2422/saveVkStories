@@ -18,6 +18,7 @@ vk_user_session = VkApi(token=vk_user_token)
 
 
 def download_video(link):
+
     response_video = requests.get(link, headers=headers)
     if not response_video.ok or not (content := response_video.content):
         logger.error("Video not download")
