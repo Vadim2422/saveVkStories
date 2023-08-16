@@ -1,1 +1,10 @@
 .env
+venv
+src/video
+logs/bot.log
+/**/__pycache__
+poetry.lock
+pyproject.toml
+.replit
+replit.nix
+.breakpoints
