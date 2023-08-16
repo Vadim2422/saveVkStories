@@ -4,7 +4,8 @@ import time
 
 import requests
 from vk_api import VkApi
-from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType, VkBotMessageEvent
+from vk_api.exceptions import VkApiError
+from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from flask_service.service import start_thread_flask
 
 from logs.logger import logger
@@ -15,6 +16,14 @@ path_to_dir_video = "src/video"
 path_to_video = os.path.join(path_to_dir_video, 'video.mp4')
 vk_group_session = VkApi(token=vk_group_token)
 vk_user_session = VkApi(token=vk_user_token)
+group_id = 174635541
+
+
+def mark_as_read(peer_id: int, start_message_id: int):
+    values = {"peer_id": peer_id,
+              "start_message_id": start_message_id}
+
+    vk_group_session.method("messages.markAsRead", values=values)
 
 
 def download_video(link):
@@ -23,7 +32,7 @@ def download_video(link):
     if not response_video.ok or not (content := response_video.content):
         logger.error("Video not download")
         raise Exception()
-    with open(path_to_video , "wb") as file:
+    with open(path_to_video, "wb") as file:
         file.write(content)
 
 
@@ -40,7 +49,7 @@ def add_video_to_album(owner_id, video_id):
 
 def get_upload_url():
     values = {"name": "Kappa",
-              "group_id": 174635541}
+              "group_id": group_id}
     response = vk_user_session.method(method='video.save', values=values)
     if 'upload_url' in response:
         return response['upload_url']
@@ -69,7 +78,7 @@ def send_msg_text(user_id, msg):
     try:
         response = vk_group_session.method("messages.send", values=values)
         return response
-    except Exception:
+    except VkApiError:
         logger.exception("send_msg_text")
 
 
@@ -80,7 +89,7 @@ def send_msg_video(user_id, owner_id, video_id):
               }
     try:
         vk_group_session.method("messages.send", values=values)
-    except Exception:
+    except VkApiError:
         logger.exception("send_msg_video")
 
 
@@ -114,20 +123,22 @@ def save_story(message):
     owner_id = response['owner_id']
     add_video_to_album(owner_id, video_id)
 
+# def check_story_video(message):
 
 def main():
     logger.info(f"Bot is up")
     if not os.path.isdir(path_to_dir_video):
         os.mkdir(path_to_dir_video)
-    longpoll = VkBotLongPoll(vk_group_session, '174635541')
-    for event in longpoll.listen():
-
+    long_poll = VkBotLongPoll(vk_group_session, '174635541')
+    for event in long_poll.listen():
         if event.type == VkBotEventType.MESSAGE_NEW:
-            if event.message.attachments:
-                if event.message.attachments[0]['type'] == 'story':
+            if att := event.message.attachments:
+                if (story := att[0].get('story')) and (video := story.get('video')):
                     try:
+                        print(video)
+                        mark_as_read(event.message.peer_id, event.message.id)
                         save_story(event.message)
-                    except Exception:
+                    except VkApiError:
                         send_msg_text(event.message.from_id, "Error, check logs")
 
 
